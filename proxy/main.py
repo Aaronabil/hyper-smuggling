@@ -1,50 +1,45 @@
-from flask import Flask, request, Response
-import requests
-import os
+import httpx
+from quart import Quart, request, Response
 
-app = Flask(__name__)
-BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:3000')
+app = Quart(__name__)
+# Alamat server backend di dalam network Docker
+BACKEND_URL = "http://server:8080"
 
-@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'])
-@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'])
-def proxy(path):
-    # Simple proxy that forwards requests
-    if path:
-        url = f"{BACKEND_URL}/{path}"
-    else:
-        url = f"{BACKEND_URL}/"
-    
-    # Forward headers (but normalize them)
-    headers = {}
-    for key, value in request.headers:
-        if key.lower() not in ['host', 'content-length', 'connection']:
-            headers[key] = value
-    
-    # Forward the request
-    try:
-        resp = requests.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            data=request.get_data(),
-            params=request.args,
-            allow_redirects=False
-        )
-        
-        # Return response
-        response_headers = {}
-        for key, value in resp.headers.items():
-            if key.lower() not in ['content-encoding', 'transfer-encoding', 'connection']:
-                response_headers[key] = value
-        
-        response = Response(
-            resp.content,
-            status=resp.status_code,
-            headers=response_headers
-        )
-        return response
-    except Exception as e:
-        return f"Proxy Error: {str(e)}", 500
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
+async def proxy(path):
+    # Aturan keamanan: Jangan biarkan siapapun mengakses /secret secara langsung
+    if path == "secret":
+        return Response("Forbidden: Access to this path is denied.", status=403)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
+    async with httpx.AsyncClient() as client:
+        # Meneruskan request ke backend
+        try:
+            # Mengambil semua data dari request yang masuk
+            headers = [(k, v) for k, v in request.headers.items()]
+            data = await request.get_data()
+            
+            # Membuat request baru ke server backend
+            backend_req = client.build_request(
+                method=request.method,
+                url=f"{BACKEND_URL}/{path}",
+                headers=headers,
+                content=data,
+                params=request.args
+            )
+            
+            # Mengirim request dan mendapatkan response
+            backend_resp = await client.send(backend_req)
+
+            # Meneruskan response dari backend ke client
+            return Response(
+                response=backend_resp.content,
+                status=backend_resp.status_code,
+                headers=backend_resp.headers.items()
+            )
+        except httpx.RequestError as e:
+            return Response(f"Proxy error: {e}", status=502)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

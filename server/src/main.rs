@@ -1,64 +1,60 @@
-use hyper::service::{make_service_fn, service_fn};
-use hyper::server::Server;
-use hyper::{Body, Method, Request, Response, StatusCode};
 use std::convert::Infallible;
-use std::env;
 use std::net::SocketAddr;
+use std::env;
+use hyper::{Body, Request, Response, Server, Method, StatusCode};
+use hyper::service::{make_service_fn, service_fn};
 
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let path = req.uri().path();
-    let method = req.method();
-    
-    match (method, path) {
+    match (req.method(), req.uri().path()) {
+        // Rute untuk halaman utama
         (&Method::GET, "/") => {
-            let html = include_str!("index.html");
-            Ok(Response::new(Body::from(html)))
+            let html_content = tokio::fs::read_to_string("src/index.html").await.unwrap_or_else(|_| "File not found".to_string());
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "text/html")
+                .body(html_content.into())
+                .unwrap())
         }
-        (&Method::POST, "/") => {
-            // Handle POST to root - just return OK for smuggling attack
-            Ok(Response::new(Body::from("OK")))
-        }
-        (&Method::GET, "/admin") => {
-            // Check for admin access - simplified check
-            let headers = req.headers();
-            let is_admin = headers.get("x-admin-access").is_some();
+        
+        // Rute rahasia yang berisi flag
+        (&Method::GET, "/secret") => {
+            // Baca flag dari environment variable
+            let flag = env::var("FLAG").unwrap_or_else(|_| "FLAG_NOT_FOUND".to_string());
+            let mut html_content = tokio::fs::read_to_string("src/secret.html").await.unwrap_or_else(|_| "File not found".to_string());
             
-            if is_admin {
-                let flag = env::var("FLAG").unwrap_or("FLAG{not_found}".to_string());
-                let admin_html = include_str!("admin.html").replace("{{FLAG}}", &flag);
-                Ok(Response::new(Body::from(admin_html)))
-            } else {
-                Ok(Response::builder()
-                    .status(StatusCode::FORBIDDEN)
-                    .body(Body::from("Access Denied: Admin access required"))
-                    .unwrap())
-            }
+            // Ganti placeholder dengan flag asli
+            html_content = html_content.replace("{{FLAG}}", &flag);
+
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "text/html")
+                .body(html_content.into())
+                .unwrap())
         }
-        (&Method::POST, "/admin") => {
-            // Internal admin endpoint - should only be accessible via smuggled request
-            let flag = env::var("FLAG").unwrap_or("FLAG{not_found}".to_string());
-            Ok(Response::new(Body::from(format!("FLAG: {}", flag))))
-        }
+
+        // Rute lainnya akan menghasilkan 404
         _ => {
             Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
-                .body(Body::from("Not Found"))
+                .body("404 Not Found".into())
                 .unwrap())
         }
     }
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn main() {
+    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+
     let make_svc = make_service_fn(|_conn| async {
         Ok::<_, Infallible>(service_fn(handle_request))
     });
 
-    let addr: SocketAddr = ([0, 0, 0, 0], 3000).into();
     let server = Server::bind(&addr).serve(make_svc);
 
-    println!("Server running on http://0.0.0.0:3000");
+    println!("Listening on http://{}", addr);
 
-    server.await?;
-    Ok(())
+    if let Err(e) = server.await {
+        eprintln!("server error: {}", e);
+    }
 }

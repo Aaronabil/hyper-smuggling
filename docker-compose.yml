@@ -1,17 +1,25 @@
 version: '3.8'
+
 services:
   proxy:
     build: ./proxy
     ports:
-      - "8080:8080"
+      - "8000:8000"
     depends_on:
       - server
-    environment:
-      - BACKEND_URL=http://server:3000
+    networks:
+      - app-net
 
   server:
     build: ./server
-    expose:
-      - "3000"
     env_file:
       - .env
+    # Port 8080 tidak diekspos ke host, hanya bisa diakses dari dalam network docker
+    expose:
+      - "8080"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

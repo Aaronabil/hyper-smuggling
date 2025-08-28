@@ -1,8 +1,9 @@
 [package]
-name = "hyper-server"
+name = "server"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hyper = { version = "0.14.20", features = ["full"] }  # Vulnerable version
+hyper = "0.14.23" # Versi yang rentan terhadap GHSA-5h46-h7hh-c6x9
 tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
