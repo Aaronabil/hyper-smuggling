@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hyper Challenge</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .warning { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Hyper Challenge</h1>
+        <p>Welcome to the HTTP Request Smuggling Challenge!</p>
+        
+        <div class="warning">
+            <strong>⚠️ Notice:</strong> This server is running behind a proxy. 
+            Admin access is restricted and requires special permissions.
+        </div>
+        
+        <h2>Available Endpoints:</h2>
+        <ul>
+            <li><code>GET /</code> - This page</li>
+            <li><code>GET /admin</code> - Admin panel (restricted)</li>
+        </ul>
+        
+        <h2>Hints:</h2>
+        <ul>
+            <li>The proxy and backend server handle HTTP differently</li>
+            <li>Check the Hyper version being used</li>
+            <li>Look for HTTP parsing inconsistencies</li>
+            <li>CVE information might be helpful</li>
+        </ul>
+        
+        <p><em>Can you find a way to access the admin panel?</em></p>
+    </div>
+</body>
+</html>

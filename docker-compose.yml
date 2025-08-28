@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  proxy:
+    build: ./proxy
+    ports:
+      - "8080:8080"
+    depends_on:
+      - server
+    environment:
+      - BACKEND_URL=http://server:3000
+
+  server:
+    build: ./server
+    expose:
+      - "3000"
+    env_file:
+      - .env
